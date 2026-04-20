@@ -1,5 +1,8 @@
 export type GesturePhase = "idle" | "charging" | "ready" | "firing";
 
+/** かめはめ波＝両手チャージ、螺旋丸＝片手チャージ */
+export type AttackStyle = "kamehameha" | "rasengan";
+
 export type GestureConfig = {
   /** チャージ開始：両手距離がこの値未満（正規化 XY） */
   chargeEnterDist: number;
@@ -29,7 +32,7 @@ export const defaultGestureConfig: GestureConfig = {
 
 export type GestureOutput = {
   phase: GesturePhase;
-  /** 正規化座標（0-1）の両手の中点。片手以下なら null */
+  /** 照準（正規化 0–1）。かめはめ波は両手の中点、螺旋丸は利き手のひら付近 */
   aimNorm: { x: number; y: number } | null;
   /** 正規化座標系でのビーム方向（単位ベクトル） */
   fireDirNorm: { x: number; y: number } | null;

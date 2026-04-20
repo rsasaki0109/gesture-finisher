@@ -1,8 +1,9 @@
 import { CameraManager } from "../camera/cameraManager";
 import { GestureEngine } from "../gesture/gestureEngine";
-import type { GesturePhase } from "../gesture/gestureTypes";
+import type { AttackStyle, GesturePhase } from "../gesture/gestureTypes";
 import { EffectStack } from "../effects/effectStack";
 import { KamehamehaEffect } from "../effects/kamehamehaEffect";
+import { RasenganEffect } from "../effects/rasenganEffect";
 import { HandVision } from "../vision/handVision";
 
 export type AppElements = {
@@ -11,18 +12,34 @@ export type AppElements = {
   canvas: HTMLCanvasElement;
   statusEl: HTMLElement;
   phaseEl: HTMLElement;
+  helpEl: HTMLElement;
+  modeKameBtn: HTMLButtonElement;
+  modeRasenBtn: HTMLButtonElement;
   startBtn: HTMLButtonElement;
   stopBtn: HTMLButtonElement;
+};
+
+const HELP: Record<AttackStyle, string> = {
+  kamehameha:
+    "【かめはめ波・両手】① 画面上部で「かめはめ波」を選ぶ。② **両手**をカメラに見せ、**くっつける**（検出が「手 2」）。③ 「ready（発射可）」までキープ。④ **カメラに向かってグッと押し出す** とビーム。",
+  rasengan:
+    "【螺旋丸・片手】① 「螺旋丸」を選ぶ。② **利き手ひとつ**をカメラに向け、**少し止める**（手 1 本以上で OK）。③ ready になったら **手を前に突き出す** と球が飛ぶ。",
 };
 
 function layout(root: HTMLElement): AppElements {
   root.innerHTML = `
     <div class="hud">
-      <div>
+      <div class="hud-main">
+        <div class="mode-bar" role="group" aria-label="技の選択">
+          <span class="mode-label">技</span>
+          <button type="button" class="mode-btn active" id="mode-kh">かめはめ波（両手）</button>
+          <button type="button" class="mode-btn" id="mode-rs">螺旋丸（片手）</button>
+        </div>
         <div class="state" id="phase">状態: 初期化中…</div>
-        <div class="hint" id="status">カメラ許可後、両手を近づけてチャージ → そのままカメラに向かって押し出すと発射。</div>
+        <div class="help" id="help">${HELP.kamehameha}</div>
+        <div class="hint" id="status">「開始」でカメラを許可してください。</div>
       </div>
-      <div>
+      <div class="hud-actions">
         <button id="start" type="button">開始</button>
         <button id="stop" type="button" disabled>停止</button>
       </div>
@@ -37,10 +54,24 @@ function layout(root: HTMLElement): AppElements {
   const canvas = root.querySelector<HTMLCanvasElement>("#fx")!;
   const statusEl = root.querySelector<HTMLElement>("#status")!;
   const phaseEl = root.querySelector<HTMLElement>("#phase")!;
+  const helpEl = root.querySelector<HTMLElement>("#help")!;
+  const modeKameBtn = root.querySelector<HTMLButtonElement>("#mode-kh")!;
+  const modeRasenBtn = root.querySelector<HTMLButtonElement>("#mode-rs")!;
   const startBtn = root.querySelector<HTMLButtonElement>("#start")!;
   const stopBtn = root.querySelector<HTMLButtonElement>("#stop")!;
 
-  return { root, video, canvas, statusEl, phaseEl, startBtn, stopBtn };
+  return {
+    root,
+    video,
+    canvas,
+    statusEl,
+    phaseEl,
+    helpEl,
+    modeKameBtn,
+    modeRasenBtn,
+    startBtn,
+    stopBtn,
+  };
 }
 
 function phaseLabel(p: GesturePhase): string {
@@ -58,6 +89,10 @@ function phaseLabel(p: GesturePhase): string {
   }
 }
 
+function modeShort(s: AttackStyle): string {
+  return s === "kamehameha" ? "かめはめ波" : "螺旋丸";
+}
+
 /**
  * メインループ：camera → vision → gesture → effects のパイプライン。
  */
@@ -72,6 +107,7 @@ export class GestureFinisherApp {
   private running = false;
   private lastTs = 0;
   private fireSeed = 1;
+  private attackStyle: AttackStyle = "kamehameha";
   /** 自撮り表示とランドマークの左右を一致させる */
   private readonly mirrorX = true;
 
@@ -79,17 +115,32 @@ export class GestureFinisherApp {
     this.els = layout(root);
     this.els.video.style.transform = this.mirrorX ? "scaleX(-1)" : "";
 
+    this.els.modeKameBtn.addEventListener("click", () => this.setAttackStyle("kamehameha"));
+    this.els.modeRasenBtn.addEventListener("click", () => this.setAttackStyle("rasengan"));
+
     this.els.startBtn.addEventListener("click", () => void this.start());
     this.els.stopBtn.addEventListener("click", () => this.stop());
 
     window.addEventListener("resize", () => this.resizeCanvas());
   }
 
+  private setAttackStyle(style: AttackStyle): void {
+    this.attackStyle = style;
+    this.gesture.setAttackStyle(style);
+    this.gesture.reset();
+    this.els.helpEl.textContent = HELP[style];
+    this.els.modeKameBtn.classList.toggle("active", style === "kamehameha");
+    this.els.modeRasenBtn.classList.toggle("active", style === "rasengan");
+    if (!this.running) {
+      this.setStatus("「開始」でカメラを許可してください。");
+    }
+  }
+
   async init(): Promise<void> {
     this.setStatus("MediaPipe を読み込み中…");
     await this.vision.init();
     this.setStatus("準備完了。「開始」を押してカメラを許可してください。");
-    this.els.phaseEl.textContent = "状態: idle（待機）";
+    this.els.phaseEl.textContent = `［${modeShort(this.attackStyle)}］状態: idle（待機）`;
   }
 
   private setStatus(text: string): void {
@@ -130,7 +181,11 @@ export class GestureFinisherApp {
       this.lastTs = performance.now();
       this.els.startBtn.disabled = true;
       this.els.stopBtn.disabled = false;
-      this.setStatus("検出中。両手をカメラに見せてください。");
+      const tip =
+        this.attackStyle === "kamehameha"
+          ? "検出中。**両手**をカメラに見せてください（手 2）。"
+          : "検出中。**片手**をカメラに向けてください。";
+      this.setStatus(tip);
       this.loop();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -151,7 +206,7 @@ export class GestureFinisherApp {
       ctx.clearRect(0, 0, r.width, r.height);
     }
     this.setStatus("停止しました。");
-    this.els.phaseEl.textContent = "状態: idle（待機）";
+    this.els.phaseEl.textContent = `［${modeShort(this.attackStyle)}］状態: idle（待機）`;
   }
 
   private loop = (): void => {
@@ -172,7 +227,7 @@ export class GestureFinisherApp {
     const g = this.gesture.process(frame, now);
     const handN = frame?.hands.length ?? 0;
 
-    this.els.phaseEl.textContent = `状態: ${phaseLabel(g.phase)} / 手 ${handN} / charge ${g.debug.chargeMs.toFixed(
+    this.els.phaseEl.textContent = `［${modeShort(this.attackStyle)}］${phaseLabel(g.phase)} / 手 ${handN} / charge ${g.debug.chargeMs.toFixed(
       0
     )} ms`;
 
@@ -180,9 +235,13 @@ export class GestureFinisherApp {
       const o = this.normToCanvas(g.aimNorm.x, g.aimNorm.y);
       const d = this.dirToCanvas(g.fireDirNorm.x, g.fireDirNorm.y);
       const len = Math.hypot(d.x, d.y) || 1;
-      this.effects.push(
-        new KamehamehaEffect(o, { x: d.x / len, y: d.y / len }, this.fireSeed++)
-      );
+      const dir = { x: d.x / len, y: d.y / len };
+      const seed = this.fireSeed++;
+      if (this.attackStyle === "kamehameha") {
+        this.effects.push(new KamehamehaEffect(o, dir, seed));
+      } else {
+        this.effects.push(new RasenganEffect(o, dir, seed));
+      }
     }
 
     this.effects.update(dt);

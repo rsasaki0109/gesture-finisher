@@ -105,9 +105,159 @@ body {
   color: #f0f9ff;
 }
 
-.hud .state {
-  font-weight: 600;
+.phase-panel {
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 2px solid #334155;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+  max-width: 720px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.phase-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.phase-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.phase-tech {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #e0f2fe;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.2);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+}
+
+.phase-title {
+  margin: 4px 0 6px;
+  font-size: 1.65rem;
+  font-weight: 800;
+  line-height: 1.2;
   letter-spacing: 0.02em;
+  color: #f8fafc;
+  text-shadow: 0 0 24px rgba(56, 189, 248, 0.35);
+}
+
+.phase-detail {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+.phase-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  overflow: hidden;
+  margin-bottom: 10px;
+  border: 1px solid #334155;
+}
+
+.phase-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #38bdf8, #818cf8);
+  transition: width 0.12s ease-out;
+}
+
+.phase-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.phase-steps li {
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(51, 65, 85, 0.5);
+  color: #94a3b8;
+  border: 1px solid transparent;
+}
+
+.phase-steps li.done {
+  color: #64748b;
+  background: rgba(30, 41, 59, 0.6);
+  text-decoration: line-through;
+  text-decoration-color: #475569;
+}
+
+.phase-steps li.active {
+  color: #0f172a;
+  background: #38bdf8;
+  border-color: #7dd3fc;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.phase-panel[data-phase="idle"] {
+  border-color: #475569;
+  box-shadow: 0 0 0 1px rgba(71, 85, 105, 0.5);
+}
+
+.phase-panel[data-phase="charging"] {
+  border-color: #fbbf24;
+  box-shadow: 0 0 20px rgba(251, 191, 36, 0.25);
+}
+
+.phase-panel[data-phase="charging"] .phase-title {
+  color: #fde68a;
+  text-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+}
+
+.phase-panel[data-phase="charging"] .phase-progress-fill {
+  background: linear-gradient(90deg, #fbbf24, #f97316);
+}
+
+.phase-panel[data-phase="ready"] {
+  border-color: #34d399;
+  box-shadow: 0 0 24px rgba(52, 211, 153, 0.35);
+}
+
+.phase-panel[data-phase="ready"] .phase-title {
+  color: #6ee7b7;
+  text-shadow: 0 0 22px rgba(52, 211, 153, 0.45);
+}
+
+.phase-panel[data-phase="ready"] .phase-progress-fill {
+  background: linear-gradient(90deg, #34d399, #22d3ee);
+}
+
+.phase-panel[data-phase="firing"] {
+  border-color: #a78bfa;
+  box-shadow: 0 0 28px rgba(167, 139, 250, 0.45);
+}
+
+.phase-panel[data-phase="firing"] .phase-title {
+  color: #e9d5ff;
+  text-shadow: 0 0 26px rgba(167, 139, 250, 0.5);
+}
+
+.phase-panel[data-phase="firing"] .phase-progress-fill {
+  background: linear-gradient(90deg, #a78bfa, #38bdf8);
+}
+
+.phase-panel[data-running="false"] .phase-steps li.active {
+  background: rgba(56, 189, 248, 0.25);
+  color: #bae6fd;
+  border-color: rgba(56, 189, 248, 0.4);
 }
 
 .hud .help {

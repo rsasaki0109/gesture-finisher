@@ -1,6 +1,11 @@
 import { CameraManager } from "../camera/cameraManager";
 import { GestureEngine } from "../gesture/gestureEngine";
-import type { AttackStyle, GesturePhase } from "../gesture/gestureTypes";
+import {
+  type AttackStyle,
+  type GesturePhase,
+  type GestureOutput,
+  defaultGestureConfig,
+} from "../gesture/gestureTypes";
 import { EffectStack } from "../effects/effectStack";
 import { KamehamehaEffect } from "../effects/kamehamehaEffect";
 import { RasenganEffect } from "../effects/rasenganEffect";
@@ -11,7 +16,13 @@ export type AppElements = {
   video: HTMLVideoElement;
   canvas: HTMLCanvasElement;
   statusEl: HTMLElement;
-  phaseEl: HTMLElement;
+  phasePanel: HTMLElement;
+  phaseTitle: HTMLElement;
+  phaseDetail: HTMLElement;
+  phaseProgress: HTMLElement;
+  phaseProgressFill: HTMLElement;
+  phaseSteps: HTMLElement;
+  phaseTech: HTMLElement;
   helpEl: HTMLElement;
   modeKameBtn: HTMLButtonElement;
   modeRasenBtn: HTMLButtonElement;
@@ -35,7 +46,23 @@ function layout(root: HTMLElement): AppElements {
           <button type="button" class="mode-btn active" id="mode-kh">かめはめ波（両手）</button>
           <button type="button" class="mode-btn" id="mode-rs">螺旋丸（片手）</button>
         </div>
-        <div class="state" id="phase">状態: 初期化中…</div>
+        <div class="phase-panel" id="phase-panel" data-phase="idle" data-running="false">
+          <div class="phase-panel-head">
+            <span class="phase-badge" id="phase-badge">現在の状態</span>
+            <span class="phase-tech" id="phase-tech">かめはめ波</span>
+          </div>
+          <h2 class="phase-title" id="phase-title" aria-live="polite">準備中</h2>
+          <p class="phase-detail" id="phase-detail">MediaPipe を待っています…</p>
+          <div class="phase-progress" id="phase-progress" aria-hidden="true">
+            <div class="phase-progress-fill" id="phase-progress-fill"></div>
+          </div>
+          <ol class="phase-steps" id="phase-steps">
+            <li data-step="idle">① 待機</li>
+            <li data-step="charging">② チャージ</li>
+            <li data-step="ready">③ 発射OK</li>
+            <li data-step="firing">④ 発射</li>
+          </ol>
+        </div>
         <div class="help" id="help">${HELP.kamehameha}</div>
         <div class="hint" id="status">「開始」でカメラを許可してください。</div>
       </div>
@@ -53,7 +80,13 @@ function layout(root: HTMLElement): AppElements {
   const video = root.querySelector<HTMLVideoElement>("#cam")!;
   const canvas = root.querySelector<HTMLCanvasElement>("#fx")!;
   const statusEl = root.querySelector<HTMLElement>("#status")!;
-  const phaseEl = root.querySelector<HTMLElement>("#phase")!;
+  const phasePanel = root.querySelector<HTMLElement>("#phase-panel")!;
+  const phaseTitle = root.querySelector<HTMLElement>("#phase-title")!;
+  const phaseDetail = root.querySelector<HTMLElement>("#phase-detail")!;
+  const phaseProgress = root.querySelector<HTMLElement>("#phase-progress")!;
+  const phaseProgressFill = root.querySelector<HTMLElement>("#phase-progress-fill")!;
+  const phaseSteps = root.querySelector<HTMLElement>("#phase-steps")!;
+  const phaseTech = root.querySelector<HTMLElement>("#phase-tech")!;
   const helpEl = root.querySelector<HTMLElement>("#help")!;
   const modeKameBtn = root.querySelector<HTMLButtonElement>("#mode-kh")!;
   const modeRasenBtn = root.querySelector<HTMLButtonElement>("#mode-rs")!;
@@ -65,7 +98,13 @@ function layout(root: HTMLElement): AppElements {
     video,
     canvas,
     statusEl,
-    phaseEl,
+    phasePanel,
+    phaseTitle,
+    phaseDetail,
+    phaseProgress,
+    phaseProgressFill,
+    phaseSteps,
+    phaseTech,
     helpEl,
     modeKameBtn,
     modeRasenBtn,
@@ -74,23 +113,72 @@ function layout(root: HTMLElement): AppElements {
   };
 }
 
-function phaseLabel(p: GesturePhase): string {
-  switch (p) {
+function modeShort(s: AttackStyle): string {
+  return s === "kamehameha" ? "かめはめ波" : "螺旋丸";
+}
+
+function phaseUiCopy(
+  phase: GesturePhase,
+  style: AttackStyle,
+  handN: number,
+  chargeMs: number
+): { title: string; detail: string; progress: number } {
+  const hold = defaultGestureConfig.readyHoldMs;
+  const needHands = style === "kamehameha" ? 2 : 1;
+  const handOk = handN >= needHands;
+  const handHint =
+    style === "kamehameha"
+      ? `いま検出されている手: ${handN} 本（目安 ${needHands} 本）`
+      : `いま検出されている手: ${handN} 本（目安 ${needHands} 本以上）`;
+
+  switch (phase) {
     case "idle":
-      return "idle（待機）";
-    case "charging":
-      return "charging（チャージ中）";
+      return {
+        title: "待機",
+        detail: handOk
+          ? `${handHint}。ポーズを取ってチャージを開始できます。`
+          : `${handHint}。カメラに向けて手をはっきり映してください。`,
+        progress: 0,
+      };
+    case "charging": {
+      const p = Math.min(100, Math.round((chargeMs / hold) * 100));
+      return {
+        title: "チャージ中",
+        detail: `キープ中… あと約 ${Math.max(0, Math.ceil(hold - chargeMs))} ms で「発射OK」へ。`,
+        progress: p,
+      };
+    }
     case "ready":
-      return "ready（発射可）";
+      return {
+        title: "発射 OK",
+        detail: "いまがチャンス。カメラに向かってグッと押し出す！",
+        progress: 100,
+      };
     case "firing":
-      return "firing（発射）";
+      return {
+        title: "発射！",
+        detail: "エフェクト表示中。次のチャージまで一瞬お待ちください。",
+        progress: 100,
+      };
     default:
-      return String(p);
+      return { title: String(phase), detail: "", progress: 0 };
   }
 }
 
-function modeShort(s: AttackStyle): string {
-  return s === "kamehameha" ? "かめはめ波" : "螺旋丸";
+function applyPhaseStepActive(stepsEl: HTMLElement, phase: GesturePhase): void {
+  for (const li of stepsEl.querySelectorAll("li")) {
+    const step = li.getAttribute("data-step");
+    li.classList.toggle("active", step === phase);
+    li.classList.toggle("done", isStepDone(step, phase));
+  }
+}
+
+function isStepDone(step: string | null, current: GesturePhase): boolean {
+  const order = ["idle", "charging", "ready", "firing"] as const;
+  const si = order.indexOf(step as (typeof order)[number]);
+  const ci = order.indexOf(current);
+  if (si < 0 || ci < 0) return false;
+  return si < ci;
 }
 
 /**
@@ -131,8 +219,10 @@ export class GestureFinisherApp {
     this.els.helpEl.textContent = HELP[style];
     this.els.modeKameBtn.classList.toggle("active", style === "kamehameha");
     this.els.modeRasenBtn.classList.toggle("active", style === "rasengan");
+    this.els.phaseTech.textContent = modeShort(style);
     if (!this.running) {
       this.setStatus("「開始」でカメラを許可してください。");
+      this.setPhasePanelAfterInit();
     }
   }
 
@@ -140,11 +230,54 @@ export class GestureFinisherApp {
     this.setStatus("MediaPipe を読み込み中…");
     await this.vision.init();
     this.setStatus("準備完了。「開始」を押してカメラを許可してください。");
-    this.els.phaseEl.textContent = `［${modeShort(this.attackStyle)}］状態: idle（待機）`;
+    this.setPhasePanelAfterInit();
   }
 
   private setStatus(text: string): void {
     this.els.statusEl.textContent = text;
+  }
+
+  private setPhasePanelAfterInit(): void {
+    this.els.phasePanel.dataset.phase = "idle";
+    this.els.phasePanel.dataset.running = "false";
+    this.els.phaseTech.textContent = modeShort(this.attackStyle);
+    this.els.phaseTitle.textContent = "カメラ待ち";
+    this.els.phaseDetail.textContent =
+      "「開始」でカメラを許可すると、このパネルがいまの段階（待機→チャージ→発射OK→発射）をリアルタイム表示します。";
+    this.els.phaseProgressFill.style.width = "0%";
+    applyPhaseStepActive(this.els.phaseSteps, "idle");
+    for (const li of this.els.phaseSteps.querySelectorAll("li")) {
+      li.classList.remove("done");
+    }
+  }
+
+  private setPhasePanelStopped(): void {
+    this.els.phasePanel.dataset.phase = "idle";
+    this.els.phasePanel.dataset.running = "false";
+    this.els.phaseTech.textContent = modeShort(this.attackStyle);
+    this.els.phaseTitle.textContent = "停止中";
+    this.els.phaseDetail.textContent = "「開始」で再開。上のステップはまたライブで動きます。";
+    this.els.phaseProgressFill.style.width = "0%";
+    applyPhaseStepActive(this.els.phaseSteps, "idle");
+    for (const li of this.els.phaseSteps.querySelectorAll("li")) {
+      li.classList.remove("done");
+    }
+  }
+
+  private refreshPhasePanelLive(g: GestureOutput, handN: number): void {
+    const { title, detail, progress } = phaseUiCopy(
+      g.phase,
+      this.attackStyle,
+      handN,
+      g.debug.chargeMs
+    );
+    this.els.phasePanel.dataset.phase = g.phase;
+    this.els.phasePanel.dataset.running = "true";
+    this.els.phaseTitle.textContent = title;
+    this.els.phaseDetail.textContent = detail;
+    this.els.phaseProgressFill.style.width = `${progress}%`;
+    this.els.phaseTech.textContent = modeShort(this.attackStyle);
+    applyPhaseStepActive(this.els.phaseSteps, g.phase);
   }
 
   private resizeCanvas(): void {
@@ -206,7 +339,7 @@ export class GestureFinisherApp {
       ctx.clearRect(0, 0, r.width, r.height);
     }
     this.setStatus("停止しました。");
-    this.els.phaseEl.textContent = `［${modeShort(this.attackStyle)}］状態: idle（待機）`;
+    this.setPhasePanelStopped();
   }
 
   private loop = (): void => {
@@ -227,9 +360,7 @@ export class GestureFinisherApp {
     const g = this.gesture.process(frame, now);
     const handN = frame?.hands.length ?? 0;
 
-    this.els.phaseEl.textContent = `［${modeShort(this.attackStyle)}］${phaseLabel(g.phase)} / 手 ${handN} / charge ${g.debug.chargeMs.toFixed(
-      0
-    )} ms`;
+    this.refreshPhasePanelLive(g, handN);
 
     if (g.fired && g.aimNorm && g.fireDirNorm) {
       const o = this.normToCanvas(g.aimNorm.x, g.aimNorm.y);

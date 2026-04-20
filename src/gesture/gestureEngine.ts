@@ -1,4 +1,4 @@
-import type { HandsFrame } from "../vision/handVision";
+import type { HandSample, HandsFrame } from "../vision/handVision";
 import { dist2, handPushDirXY, handScale, midpoint2, palmCenter, type Vec2 } from "../vision/geometry";
 import {
   type GestureConfig,
@@ -7,17 +7,16 @@ import {
   defaultGestureConfig,
 } from "./gestureTypes";
 
-function pickLeftRight(frame: HandsFrame): {
-  left: (typeof frame.hands)[0] | null;
-  right: (typeof frame.hands)[0] | null;
-} {
-  let left: (typeof frame.hands)[0] | null = null;
-  let right: (typeof frame.hands)[0] | null = null;
-  for (const h of frame.hands) {
-    if (h.label === "Left") left = h;
-    if (h.label === "Right") right = h;
-  }
-  return { left, right };
+/**
+ * 両手を「映像の左右」でペアにする。
+ * handedness が Unknown ばかりでも動くように、手のひら中心の x でソートする。
+ */
+function pickTwoHandsByImageX(hands: HandSample[]): [HandSample, HandSample] | null {
+  if (hands.length < 2) return null;
+  const sorted = [...hands].sort(
+    (a, b) => palmCenter(a.landmarks).x - palmCenter(b.landmarks).x
+  );
+  return [sorted[0], sorted[sorted.length - 1]];
 }
 
 /**
@@ -67,8 +66,8 @@ export class GestureEngine {
 
     if (!frame) return emptyOut(this.phase);
 
-    const { left, right } = pickLeftRight(frame);
-    if (!left || !right) {
+    const pair = pickTwoHandsByImageX(frame.hands);
+    if (!pair) {
       if (this.phase !== "firing" && this.phase !== "idle") {
         this.phase = "idle";
         this.chargeStartMs = null;
@@ -76,6 +75,7 @@ export class GestureEngine {
       return emptyOut(this.phase);
     }
 
+    const [left, right] = pair;
     const pL = palmCenter(left.landmarks);
     const pR = palmCenter(right.landmarks);
     const pairDist = dist2({ x: pL.x, y: pL.y }, { x: pR.x, y: pR.y });

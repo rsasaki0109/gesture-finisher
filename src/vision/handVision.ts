@@ -9,8 +9,8 @@ const HAND_LANDMARKER_TASK_URL =
   "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 
 export type HandSample = {
-  /** MediaPipe の handedness ラベル（映像上の左右） */
-  label: "Left" | "Right";
+  /** MediaPipe の handedness（無い場合あり — ジェスチャーは位置ペアで処理） */
+  label: "Left" | "Right" | "Unknown";
   landmarks: NormalizedLandmark[];
 };
 
@@ -38,16 +38,23 @@ export class HandVision {
   async init(): Promise<void> {
     if (this.landmarker) return;
     const fileset = await FilesetResolver.forVisionTasks(wasmBaseUrl());
-    this.landmarker = await HandLandmarker.createFromOptions(fileset, {
-      baseOptions: {
-        modelAssetPath: HAND_LANDMARKER_TASK_URL,
-      },
-      runningMode: "VIDEO",
-      numHands: 2,
-      minHandDetectionConfidence: 0.5,
-      minHandPresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    });
+    const opts = (delegate?: "CPU" | "GPU") =>
+      HandLandmarker.createFromOptions(fileset, {
+        baseOptions: {
+          modelAssetPath: HAND_LANDMARKER_TASK_URL,
+          ...(delegate ? { delegate } : {}),
+        },
+        runningMode: "VIDEO",
+        numHands: 2,
+        minHandDetectionConfidence: 0.35,
+        minHandPresenceConfidence: 0.35,
+        minTrackingConfidence: 0.35,
+      });
+    try {
+      this.landmarker = await opts("CPU");
+    } catch {
+      this.landmarker = await opts();
+    }
   }
 
   dispose(): void {
@@ -61,6 +68,7 @@ export class HandVision {
   detect(video: HTMLVideoElement, timestampMs: number): HandsFrame | null {
     if (!this.landmarker) return null;
     if (video.readyState < 2) return null;
+    if (video.videoWidth < 2 || video.videoHeight < 2) return null;
 
     const raw = this.landmarker.detectForVideo(video, timestampMs);
     const hands: HandSample[] = [];
@@ -68,7 +76,9 @@ export class HandVision {
     for (let i = 0; i < n; i++) {
       const lm = raw.landmarks[i];
       const cat = raw.handednesses[i]?.[0];
-      const label = cat?.categoryName === "Right" ? "Right" : "Left";
+      const name = cat?.categoryName;
+      const label: HandSample["label"] =
+        name === "Right" ? "Right" : name === "Left" ? "Left" : "Unknown";
       hands.push({ label, landmarks: lm });
     }
 

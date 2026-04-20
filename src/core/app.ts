@@ -170,8 +170,9 @@ export class GestureFinisherApp {
 
     const frame = this.vision.detect(this.els.video, now);
     const g = this.gesture.process(frame, now);
+    const handN = frame?.hands.length ?? 0;
 
-    this.els.phaseEl.textContent = `状態: ${phaseLabel(g.phase)} / charge ${g.debug.chargeMs.toFixed(
+    this.els.phaseEl.textContent = `状態: ${phaseLabel(g.phase)} / 手 ${handN} / charge ${g.debug.chargeMs.toFixed(
       0
     )} ms`;
 

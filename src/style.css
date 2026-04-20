@@ -1,0 +1,87 @@
+:root {
+  font-family: system-ui, "Segoe UI", sans-serif;
+  color: #e8f4ff;
+  background: #0a0f18;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px;
+  gap: 10px;
+}
+
+.stage {
+  position: relative;
+  width: min(96vw, 960px);
+  aspect-ratio: 4 / 3;
+  background: #111827;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.stage video,
+.stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.stage canvas {
+  pointer-events: none;
+}
+
+.hud {
+  width: min(96vw, 960px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hud .state {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.hud .hint {
+  opacity: 0.85;
+  font-size: 0.92rem;
+  max-width: 520px;
+  line-height: 1.45;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #fecaca;
+  max-width: 720px;
+  line-height: 1.5;
+}

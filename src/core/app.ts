@@ -10,6 +10,7 @@ import { EffectStack } from "../effects/effectStack";
 import { KamehamehaEffect } from "../effects/kamehamehaEffect";
 import { RasenganEffect } from "../effects/rasenganEffect";
 import { HandVision } from "../vision/handVision";
+import { ILLU_KAMEHAMEHA, ILLU_RASENGAN } from "./poseIllustrations";
 
 export type AppElements = {
   root: HTMLElement;
@@ -28,13 +29,16 @@ export type AppElements = {
   modeRasenBtn: HTMLButtonElement;
   startBtn: HTMLButtonElement;
   stopBtn: HTMLButtonElement;
+  poseGuide: HTMLElement;
+  posePanelKame: HTMLElement;
+  posePanelRasen: HTMLElement;
 };
 
 const HELP: Record<AttackStyle, string> = {
   kamehameha:
-    "【かめはめ波・両手】① 画面上部で「かめはめ波」を選ぶ。② **両手**をカメラに見せ、**くっつける**（検出が「手 2」）。③ 「ready（発射可）」までキープ。④ **カメラに向かってグッと押し出す** とビーム。",
+    "右の図が目安です。①「開始」② 両手を前でくっつける（手の本数は上のパネル）③「発射OK」でカメラに押し出す。",
   rasengan:
-    "【螺旋丸・片手】① 「螺旋丸」を選ぶ。② **利き手ひとつ**をカメラに向け、**少し止める**（手 1 本以上で OK）。③ ready になったら **手を前に突き出す** と球が飛ぶ。",
+    "右の図が目安です。①「開始」② 片手のひらをカメラに向けて少し止める ③「発射OK」で前に突き出す。",
 };
 
 function layout(root: HTMLElement): AppElements {
@@ -71,9 +75,21 @@ function layout(root: HTMLElement): AppElements {
         <button id="stop" type="button" disabled>停止</button>
       </div>
     </div>
-    <div class="stage">
-      <video id="cam" playsinline muted></video>
-      <canvas id="fx"></canvas>
+    <div class="content-row">
+      <div class="stage">
+        <video id="cam" playsinline muted></video>
+        <canvas id="fx"></canvas>
+      </div>
+      <aside class="pose-guide" id="pose-guide" data-phase="idle" data-live="false" aria-label="ポーズの例">
+        <h3 class="pose-guide-title">ポーズの例（こんな感じ）</h3>
+        <p class="pose-guide-lead">迷ったら<strong>右のイラスト</strong>と同じ形を真似してください。明るい場所・手が画面に入る距離がコツです。</p>
+        <div class="pose-panel" id="pose-panel-kh">
+          <div class="pose-illu">${ILLU_KAMEHAMEHA}</div>
+        </div>
+        <div class="pose-panel is-hidden" id="pose-panel-rs">
+          <div class="pose-illu">${ILLU_RASENGAN}</div>
+        </div>
+      </aside>
     </div>
   `;
 
@@ -92,6 +108,9 @@ function layout(root: HTMLElement): AppElements {
   const modeRasenBtn = root.querySelector<HTMLButtonElement>("#mode-rs")!;
   const startBtn = root.querySelector<HTMLButtonElement>("#start")!;
   const stopBtn = root.querySelector<HTMLButtonElement>("#stop")!;
+  const poseGuide = root.querySelector<HTMLElement>("#pose-guide")!;
+  const posePanelKame = root.querySelector<HTMLElement>("#pose-panel-kh")!;
+  const posePanelRasen = root.querySelector<HTMLElement>("#pose-panel-rs")!;
 
   return {
     root,
@@ -110,6 +129,9 @@ function layout(root: HTMLElement): AppElements {
     modeRasenBtn,
     startBtn,
     stopBtn,
+    poseGuide,
+    posePanelKame,
+    posePanelRasen,
   };
 }
 
@@ -136,8 +158,8 @@ function phaseUiCopy(
       return {
         title: "待機",
         detail: handOk
-          ? `${handHint}。ポーズを取ってチャージを開始できます。`
-          : `${handHint}。カメラに向けて手をはっきり映してください。`,
+          ? `${handHint}。右の図のポーズに近づけるとチャージが始まります。`
+          : `${handHint}。右の図のように手をカメラの前に出してください。`,
         progress: 0,
       };
     case "charging": {
@@ -210,6 +232,8 @@ export class GestureFinisherApp {
     this.els.stopBtn.addEventListener("click", () => this.stop());
 
     window.addEventListener("resize", () => this.resizeCanvas());
+
+    this.syncPosePanels();
   }
 
   private setAttackStyle(style: AttackStyle): void {
@@ -220,6 +244,7 @@ export class GestureFinisherApp {
     this.els.modeKameBtn.classList.toggle("active", style === "kamehameha");
     this.els.modeRasenBtn.classList.toggle("active", style === "rasengan");
     this.els.phaseTech.textContent = modeShort(style);
+    this.syncPosePanels();
     if (!this.running) {
       this.setStatus("「開始」でカメラを許可してください。");
       this.setPhasePanelAfterInit();
@@ -237,9 +262,17 @@ export class GestureFinisherApp {
     this.els.statusEl.textContent = text;
   }
 
+  private syncPosePanels(): void {
+    const kh = this.attackStyle === "kamehameha";
+    this.els.posePanelKame.classList.toggle("is-hidden", !kh);
+    this.els.posePanelRasen.classList.toggle("is-hidden", kh);
+  }
+
   private setPhasePanelAfterInit(): void {
     this.els.phasePanel.dataset.phase = "idle";
     this.els.phasePanel.dataset.running = "false";
+    this.els.poseGuide.dataset.phase = "idle";
+    this.els.poseGuide.dataset.live = "false";
     this.els.phaseTech.textContent = modeShort(this.attackStyle);
     this.els.phaseTitle.textContent = "カメラ待ち";
     this.els.phaseDetail.textContent =
@@ -254,6 +287,8 @@ export class GestureFinisherApp {
   private setPhasePanelStopped(): void {
     this.els.phasePanel.dataset.phase = "idle";
     this.els.phasePanel.dataset.running = "false";
+    this.els.poseGuide.dataset.phase = "idle";
+    this.els.poseGuide.dataset.live = "false";
     this.els.phaseTech.textContent = modeShort(this.attackStyle);
     this.els.phaseTitle.textContent = "停止中";
     this.els.phaseDetail.textContent = "「開始」で再開。上のステップはまたライブで動きます。";
@@ -273,6 +308,8 @@ export class GestureFinisherApp {
     );
     this.els.phasePanel.dataset.phase = g.phase;
     this.els.phasePanel.dataset.running = "true";
+    this.els.poseGuide.dataset.phase = g.phase;
+    this.els.poseGuide.dataset.live = "true";
     this.els.phaseTitle.textContent = title;
     this.els.phaseDetail.textContent = detail;
     this.els.phaseProgressFill.style.width = `${progress}%`;

@@ -16,19 +16,91 @@ body {
 #app {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
+  max-width: 1120px;
+  margin: 0 auto;
+  width: 100%;
   padding: 12px;
-  gap: 10px;
+  gap: 12px;
+}
+
+.content-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 14px;
+  width: 100%;
 }
 
 .stage {
   position: relative;
-  width: min(96vw, 960px);
+  flex: 1;
+  min-width: 0;
   aspect-ratio: 4 / 3;
   background: #111827;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.pose-guide {
+  flex: 0 0 268px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid #334155;
+  align-self: flex-start;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pose-guide-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  letter-spacing: 0.02em;
+}
+
+.pose-guide-lead {
+  margin: 0 0 12px;
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: #cbd5e1;
+}
+
+.pose-guide-lead strong {
+  color: #7dd3fc;
+  font-weight: 700;
+}
+
+.pose-illu {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #1e293b;
+}
+
+.pose-illu svg {
+  width: 100%;
+  height: auto;
+  vertical-align: middle;
+  display: block;
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+.pose-guide[data-live="true"][data-phase="charging"] {
+  border-color: #fbbf24;
+}
+
+.pose-guide[data-live="true"][data-phase="ready"] {
+  border-color: #34d399;
+  box-shadow: 0 0 18px rgba(52, 211, 153, 0.22);
+}
+
+.pose-guide[data-live="true"][data-phase="firing"] {
+  border-color: #a78bfa;
 }
 
 .stage video,
@@ -45,7 +117,7 @@ body {
 }
 
 .hud {
-  width: min(96vw, 960px);
+  width: 100%;
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
@@ -110,7 +182,7 @@ body {
   padding: 12px 14px;
   border: 2px solid #334155;
   background: linear-gradient(145deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
-  max-width: 720px;
+  max-width: 100%;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -297,4 +369,16 @@ button:disabled {
   color: #fecaca;
   max-width: 720px;
   line-height: 1.5;
+}
+
+@media (max-width: 800px) {
+  .content-row {
+    flex-direction: column;
+  }
+
+  .pose-guide {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: none;
+  }
 }

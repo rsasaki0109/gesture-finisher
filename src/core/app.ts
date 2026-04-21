@@ -276,7 +276,7 @@ export class GestureFinisherApp {
     this.els.phaseTech.textContent = modeShort(this.attackStyle);
     this.els.phaseTitle.textContent = "カメラ待ち";
     this.els.phaseDetail.textContent =
-      "「開始」でカメラを許可すると、左のパネルが段階を表示します。**右のイラスト**と同じポーズを真似してください。";
+      "「開始」でカメラを許可すると、上のパネルが段階を表示します。右のイラストと同じポーズを真似してください。";
     this.els.phaseProgressFill.style.width = "0%";
     applyPhaseStepActive(this.els.phaseSteps, "idle");
     for (const li of this.els.phaseSteps.querySelectorAll("li")) {
